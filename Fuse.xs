@@ -1,3 +1,7 @@
+/*
+ * vim:ts=8:noet
+ */
+
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
@@ -909,10 +913,11 @@ perl_fuse_main(...)
 	int i, fd, debug, threaded;
 	char *mountpoint;
 	char *mountopts;
+	char *fuseopts = NULL;
 	struct fuse_args margs = FUSE_ARGS_INIT(0, NULL);
 	struct fuse_args fargs = FUSE_ARGS_INIT(0, NULL);
 	INIT:
-	if(items != 29) {
+	if(items != 30) {
 		fprintf(stderr,"Perl<->C inconsistency or internal error\n");
 		XSRETURN_UNDEF;
 	}
@@ -931,8 +936,9 @@ perl_fuse_main(...)
 	}
 	mountpoint = SvPV_nolen(ST(2));
 	mountopts = SvPV_nolen(ST(3));
+	if (SvCUR(ST(4))) fuseopts = SvPV_nolen(ST(4));
 	for(i=0;i<N_CALLBACKS;i++) {
-		SV *var = ST(i+4);
+		SV *var = ST(i+5);
 		/* allow symbolic references, or real code references. */
 		if(SvOK(var) && (SvPOK(var) || (SvROK(var) && SvTYPE(SvRV(var)) == SVt_PVCV))) {
 			void **tmp1 = (void**)&_available_ops, **tmp2 = (void**)&fops;
@@ -962,20 +968,25 @@ perl_fuse_main(...)
 		fuse_opt_free_args(&margs);
 		croak("out of memory\n");
 	}
+	if (fuse_opt_add_arg(&fargs, "") == -1) {
+		fuse_opt_free_args(&fargs);
+		croak("out of memory\n");
+	}
+	if (fuseopts &&
+	    (fuse_opt_add_arg(&fargs, "-o") == -1 ||
+	     fuse_opt_add_arg(&fargs, fuseopts) == -1)) {
+		fuse_opt_free_args(&fargs);
+		croak("out of memory\n");
+	}
+	if (debug && (fuse_opt_add_arg(&fargs, "-d") == -1)) {
+		fuse_opt_free_args(&fargs);
+		croak("out of memory\n");
+	}
+
 	fd = fuse_mount(mountpoint,&margs);
 	fuse_opt_free_args(&margs);        
 	if(fd < 0)
 		croak("could not mount fuse filesystem!\n");
-        if (debug) {
-		if ( fuse_opt_add_arg(&fargs, "") == -1 ||
-			fuse_opt_add_arg(&fargs, "-d") == -1) {
-			fuse_opt_free_args(&fargs);
-			croak("out of memory\n");
-		}
-	} else {
-		if (fuse_opt_add_arg(&fargs, "") == -1)
-			croak("out of memory\n");
-	}
 
 	if(threaded) {
 		fuse_loop_mt(fuse_new(fd,&fargs,&fops,sizeof(fops)));

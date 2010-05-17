@@ -83,8 +83,8 @@ sub main {
 	my $tmp = 0;
 	my %mapping = map { $_ => $tmp++ } @names;
 	my %optmap  = map { $_ => 1 } @validOpts;
-	my @otherargs = qw(debug threaded mountpoint mountopts);
-	my %otherargs = (debug=>0, threaded=>0, mountpoint=>"", mountopts=>"");
+	my @otherargs = qw(debug threaded mountpoint mountopts fuseopts);
+	my %otherargs = (debug=>0, threaded=>0, mountpoint=>"", mountopts=>"", fuseopts=>"");
 	while(my $name = shift) {
 		my ($subref) = shift;
 		if(exists($otherargs{$name})) {
